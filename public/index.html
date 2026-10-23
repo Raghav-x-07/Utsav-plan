@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Utsav Planner: GenAI-powered celebration assistant for Indian weddings, birthdays, and community events with exact INR budgets, compressed timelines, and vendor checklists.">
+  <title>Utsav Planner - Indian Celebration & Event Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Skip to main content link for screen reader and keyboard accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header class="app-header" role="banner">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-symbol" aria-hidden="true">🪔</div>
+        <div class="brand-text">
+          <h1 class="brand-title">Utsav Planner</h1>
+          <p class="brand-subtitle">Smart Indian Celebration & Event Planning Assistant</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-currency" title="All calculations in Indian Rupees">₹ INR Indian Standard</span>
+        <span class="badge badge-ai" id="ai-status-badge">Offline Fallback Ready</span>
+        <button id="theme-toggle-btn" class="btn-theme-toggle" type="button" aria-label="Toggle visual theme between light and dark mode">
+          <span class="theme-icon" aria-hidden="true">🌓</span>
+          <span class="theme-label" id="theme-label">Theme</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="main-layout" role="main">
+    <!-- Top Introduction & Presets -->
+    <section class="intro-section" aria-labelledby="intro-heading">
+      <div class="intro-content">
+        <h2 id="intro-heading" class="intro-title">Plan Your Auspicious Celebration with Precision</h2>
+        <p class="intro-description">
+          Generate an exact rupee-balanced budget, customized vendor checklist, milestone countdown timeline,
+          and regional Indian cultural ideas for weddings, birthdays, and community gatherings.
+        </p>
+      </div>
+
+      <div class="presets-container" aria-label="Quick preset samples">
+        <span class="preset-label">Quick Sample Presets:</span>
+        <button type="button" class="btn-preset" id="preset-wedding">Jaipur Royal Wedding (₹15 Lakh)</button>
+        <button type="button" class="btn-preset" id="preset-birthday">Bengaluru Theme Birthday (₹60,000)</button>
+        <button type="button" class="btn-preset" id="preset-community">Mumbai Society Diwali Utsav (₹2 Lakh)</button>
+      </div>
+    </section>
+
+    <!-- Error Summary Live Region -->
+    <div id="error-banner" class="error-banner" role="alert" aria-live="assertive" hidden>
+      <div class="error-banner-content">
+        <strong id="error-title">Please correct the following:</strong>
+        <ul id="error-list" class="error-list"></ul>
+      </div>
+      <button type="button" id="close-error-btn" class="btn-close-error" aria-label="Dismiss error messages">&times;</button>
+    </div>
+
+    <!-- Main Grid: Form on Left/Top, Output on Right/Bottom -->
+    <div class="planner-grid">
+      <!-- Input Section -->
+      <section class="card form-card" aria-labelledby="form-heading">
+        <div class="card-header">
+          <h2 id="form-heading" class="card-title">Event Parameters</h2>
+          <p class="card-subtitle">Fill in your event details to generate an intelligent plan.</p>
+        </div>
+
+        <form id="planning-form" class="planning-form" novalidate>
+          <!-- Event Type -->
+          <div class="form-group">
+            <label for="event-type" class="form-label">
+              Celebration Type <span class="required" aria-hidden="true">*</span>
+            </label>
+            <select id="event-type" name="eventType" class="form-select" required aria-describedby="event-type-help">
+              <option value="wedding">Wedding (Vivah / Shaadi)</option>
+              <option value="birthday">Birthday Party (Janamdin)</option>
+              <option value="community">Community / Society Festival (Utsav / Puja)</option>
+            </select>
+            <small id="event-type-help" class="form-help">Select the event category to tailor budget weights and vendors.</small>
+          </div>
+
+          <!-- Total Budget & Guest Count Row -->
+          <div class="form-row">
+            <div class="form-group form-col">
+              <label for="total-budget" class="form-label">
+                Total Budget (₹ INR) <span class="required" aria-hidden="true">*</span>
+              </label>
+              <div class="input-prefix-wrapper">
+                <span class="input-prefix" aria-hidden="true">₹</span>
+                <input
+                  type="number"
+                  id="total-budget"
+                  name="totalBudget"
+                  class="form-input with-prefix"
+                  min="2000"
+                  max="500000000"
+                  step="1000"
+                  placeholder="e.g. 500000"
+                  required
+                  aria-describedby="budget-help"
+                >
+              </div>
+              <small id="budget-help" class="form-help">Minimum ₹2,000 up to ₹50 Crores.</small>
+            </div>
+
+            <div class="form-group form-col">
+              <label for="guest-count" class="form-label">
+                Estimated Guests <span class="required" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="number"
+                id="guest-count"
+                name="guestCount"
+                class="form-input"
+                min="5"
+                max="10000"
+                step="1"
+                placeholder="e.g. 150"
+                required
+                aria-describedby="guest-help"
+              >
+              <small id="guest-help" class="form-help">Between 5 and 10,000 attendees.</small>
+            </div>
+          </div>
+
+          <!-- Event Date & City Row -->
+          <div class="form-row">
+            <div class="form-group form-col">
+              <label for="event-date" class="form-label">
+                Celebration Date <span class="required" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="date"
+                id="event-date"
+                name="eventDate"
+                class="form-input"
+                required
+                aria-describedby="date-help"
+              >
+              <small id="date-help" class="form-help">Must be today or in the future.</small>
+            </div>
+
+            <div class="form-group form-col">
+              <label for="city" class="form-label">
+                City / Location in India <span class="required" aria-hidden="true">*</span>
+              </label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                class="form-input"
+                maxlength="80"
+                placeholder="e.g. Jaipur, Delhi, Mumbai, Chennai"
+                required
+                aria-describedby="city-help"
+              >
+              <small id="city-help" class="form-help">Guides regional food and cultural traditions.</small>
+            </div>
+          </div>
+
+          <!-- Setting & Diet Row -->
+          <div class="form-row">
+            <div class="form-group form-col">
+              <label for="venue-type" class="form-label">
+                Venue Setting <span class="required" aria-hidden="true">*</span>
+              </label>
+              <select id="venue-type" name="venueType" class="form-select" required aria-describedby="venue-help">
+                <option value="indoor">Indoor (Banquet / AC Hall / Hotel)</option>
+                <option value="outdoor">Outdoor (Lawn / Ground / Open Terrace)</option>
+              </select>
+              <small id="venue-help" class="form-help">Outdoor includes weather backup and genset power allocations.</small>
+            </div>
+
+            <div class="form-group form-col">
+              <label for="diet" class="form-label">
+                Dietary Preference <span class="required" aria-hidden="true">*</span>
+              </label>
+              <select id="diet" name="diet" class="form-select" required aria-describedby="diet-help">
+                <option value="veg">100% Vegetarian / Pure Veg / Jain</option>
+                <option value="mixed">Mixed (Vegetarian & Non-Veg Counters)</option>
+                <option value="non-veg">Non-Vegetarian Speciality</option>
+              </select>
+              <small id="diet-help" class="form-help">Shapes menu courses and segregation precautions.</small>
+            </div>
+          </div>
+
+          <!-- Free-text Preferences -->
+          <div class="form-group">
+            <label for="preferences" class="form-label">
+              Special Preferences & Themes <span class="optional">(Optional)</span>
+            </label>
+            <textarea
+              id="preferences"
+              name="preferences"
+              class="form-textarea"
+              rows="3"
+              maxlength="500"
+              placeholder="e.g. Royal Rajasthani theme, live Sufi band, eco-friendly seed favours, zero food waste..."
+              aria-describedby="pref-help pref-counter"
+            ></textarea>
+            <div class="textarea-footer">
+              <small id="pref-help" class="form-help">Max 500 characters. Sanitized automatically.</small>
+              <span id="pref-counter" class="char-counter" aria-live="off">0 / 500</span>
+            </div>
+          </div>
+
+          <button type="submit" id="submit-plan-btn" class="btn btn-primary btn-block">
+            <span class="btn-icon" aria-hidden="true">✨</span>
+            <span class="btn-text">Generate Celebration Plan</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Output Section (Initially Shows Empty State) -->
+      <section class="card output-card" id="output-section" aria-labelledby="output-heading">
+        <div class="card-header output-header-bar">
+          <div>
+            <h2 id="output-heading" class="card-title">Celebration Plan Overview</h2>
+            <p id="plan-timestamp" class="card-subtitle">Your customized plan will appear here.</p>
+          </div>
+          <div class="export-actions" id="export-actions" hidden>
+            <button type="button" id="btn-print" class="btn btn-secondary btn-sm" title="Print plan or save as PDF">
+              <span aria-hidden="true">🖨️</span> Print / Save as PDF
+            </button>
+            <button type="button" id="btn-download-json" class="btn btn-secondary btn-sm" title="Download plan as JSON data">
+              <span aria-hidden="true">📥</span> Download JSON
+            </button>
+          </div>
+        </div>
+
+        <!-- Accessible Live Region for Screen Readers -->
+        <div id="plan-live-status" class="sr-only" aria-live="polite"></div>
+
+        <!-- Initial Placeholder State -->
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon" aria-hidden="true">📋</div>
+          <h3 class="empty-title">Ready to Plan Your Big Day</h3>
+          <p class="empty-text">
+            Enter your celebration details or choose a sample preset above, then click
+            <strong>"Generate Celebration Plan"</strong> to build your comprehensive breakdown.
+          </p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state" hidden aria-hidden="true">
+          <div class="spinner" role="status" aria-label="Calculating plan..."></div>
+          <p class="loading-text" id="loading-message">Formulating exact INR budget and milestone schedule...</p>
+        </div>
+
+        <!-- Plan Results Container -->
+        <div id="plan-results" class="plan-results" hidden>
+          <!-- Plan Executive Summary -->
+          <div class="plan-banner" id="plan-summary-container">
+            <h3 class="plan-summary-title">Executive Summary</h3>
+            <p id="plan-summary-text" class="plan-summary-text"></p>
+            <div id="plan-ai-badge-row" class="ai-badge-row"></div>
+          </div>
+
+          <!-- Contextual Warnings Accordion/Box -->
+          <div id="warnings-container" class="warnings-container" role="region" aria-label="Contextual Planning Advisories" hidden>
+            <h3 class="warnings-title">Important Planning Advisories</h3>
+            <div id="warnings-list" class="warnings-list"></div>
+          </div>
+
+          <!-- Section 1: Exact Budget Breakdown -->
+          <div class="result-block" id="budget-block">
+            <div class="result-block-header">
+              <h3 class="result-block-title">
+                <span class="block-number" aria-hidden="true">1</span> Exact Budget Allocation (Sum: <span id="budget-total-display">₹0</span>)
+              </h3>
+              <span class="badge badge-success" id="budget-sum-status">100% Balanced</span>
+            </div>
+            <p class="result-block-desc">
+              Every rupee is strictly accounted for without rounding leakage, adjusted for your event type and venue configuration.
+            </p>
+
+            <!-- Accessible Data Table -->
+            <div class="table-responsive">
+              <table class="data-table" id="budget-table">
+                <caption class="sr-only">Detailed breakdown of event budget categories, percentage allocations, and exact amounts in INR</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Budget Category</th>
+                    <th scope="col" class="text-right">Share (%)</th>
+                    <th scope="col" class="text-right">Amount (₹ INR)</th>
+                  </tr>
+                </thead>
+                <tbody id="budget-table-body"></tbody>
+                <tfoot>
+                  <tr class="table-total-row">
+                    <th scope="row">Total Budget</th>
+                    <td class="text-right" id="budget-total-percent">100%</td>
+                    <td class="text-right" id="budget-total-amount">₹0</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section 2: Milestone Timeline with Compression -->
+          <div class="result-block" id="timeline-block">
+            <div class="result-block-header">
+              <h3 class="result-block-title">
+                <span class="block-number" aria-hidden="true">2</span> Backward Planning Timeline
+              </h3>
+              <span class="badge" id="timeline-mode-badge">Standard Schedule</span>
+            </div>
+            <p class="result-block-desc" id="timeline-desc">
+              Milestones sequenced backward from your event date.
+            </p>
+            <div class="timeline-container" id="timeline-list" role="list"></div>
+          </div>
+
+          <!-- Section 3: Interactive Vendor Checklist -->
+          <div class="result-block" id="vendor-block">
+            <div class="result-block-header">
+              <div>
+                <h3 class="result-block-title">
+                  <span class="block-number" aria-hidden="true">3</span> Vendor Checklist & Budget Allocation
+                </h3>
+                <p class="result-block-desc">
+                  Tick vendors as you confirm them. Your progress and booked vendor budget updates in real-time.
+                </p>
+              </div>
+              <div class="vendor-progress-box">
+                <span class="vendor-progress-text" id="vendor-progress-label">0 of 0 Booked</span>
+                <div class="progress-bar-track" aria-hidden="true">
+                  <div class="progress-bar-fill" id="vendor-progress-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="vendor-list" id="vendor-checklist" role="group" aria-label="Vendor Booking Checklist"></div>
+          </div>
+
+          <!-- Section 4: Personalized Ideas -->
+          <div class="result-block" id="ideas-block">
+            <div class="result-block-header">
+              <h3 class="result-block-title">
+                <span class="block-number" aria-hidden="true">4</span> Bespoke Cultural & Culinary Concepts
+              </h3>
+            </div>
+            <p class="result-block-desc">
+              Curated for your city, dietary choices, venue setting, and custom themes.
+            </p>
+            <div class="ideas-grid" id="ideas-list"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="app-footer" role="contentinfo">
+    <div class="footer-container">
+      <p class="footer-text">
+        <strong>Utsav Planner</strong> — Engineered for Indian Families & Communities. Zero-dependency architecture.
+      </p>
+      <p class="footer-subtext">
+        Adheres to WCAG 2.1 AA accessibility guidelines, strict CSP security, and deterministic offline resilience.
+      </p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
