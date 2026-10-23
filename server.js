@@ -279,13 +279,19 @@ export function createServer(options = {}) {
   });
 }
 
+// Default handler for Vercel Serverless environment
+const defaultAppServer = createServer();
+export default function handler(req, res) {
+  defaultAppServer.emit('request', req, res);
+}
+
 /**
  * Starts the server if run directly.
  */
 if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
   const PORT = process.env.PORT || 3000;
-  const server = createServer();
-  server.listen(PORT, () => {
+  defaultAppServer.listen(PORT, () => {
     console.log(`Utsav Celebration Planner server running at http://localhost:${PORT}`);
   });
 }
+
