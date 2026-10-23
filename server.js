@@ -18,6 +18,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.resolve(__dirname, 'public');
 
+// Automatically load local .env without external dependencies if present
+const envPath = path.resolve(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  try {
+    const envLines = fs.readFileSync(envPath, 'utf-8').split(/\r?\n/);
+    for (const line of envLines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const [k, ...v] = trimmed.split('=');
+        const key = k.trim();
+        const val = v.join('=').trim();
+        if (!process.env[key]) {
+          process.env[key] = val;
+        }
+      }
+    }
+  } catch {
+    // Silently continue if .env cannot be read
+  }
+}
+
 // MIME types dictionary for static file serving
 const MIME_TYPES = Object.freeze({
   '.html': 'text/html; charset=utf-8',

@@ -112,17 +112,19 @@ export function safeParseGeminiResponse(rawText, defaultSummary) {
 }
 
 /**
- * Calls Gemini API to enrich the celebration plan.
+ * Calls Gemini or Groq GenAI API to enrich the celebration plan.
  * Fallbacks cleanly to deterministic plan if offline, missing key, or API fails.
  *
  * @param {Object} plan - Generated deterministic plan
- * @param {string} [apiKey] - Google Gemini API Key from environment
+ * @param {string} [apiKey] - Google Gemini or Groq API Key
  * @param {Object} [options] - Custom options for testing
  * @returns {Promise<Object>} Enriched plan
  */
-export async function enrichPlanWithAi(plan, apiKey = process.env.GEMINI_API_KEY, options = {}) {
+export async function enrichPlanWithAi(plan, apiKey = (process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY), options = {}) {
+  const activeKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+
   // Graceful offline fallback: if no API key is provided, return plan immediately
-  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim() || apiKey === 'your_gemini_api_key_here') {
+  if (!activeKey || activeKey === 'your_gemini_api_key_here' || activeKey === 'your_groq_api_key_here') {
     return {
       ...plan,
       aiEnriched: false,
@@ -130,44 +132,80 @@ export async function enrichPlanWithAi(plan, apiKey = process.env.GEMINI_API_KEY
     };
   }
 
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
-  const endpoint = `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
   const prompt = buildHardenedPrompt(plan.input);
+  const fetchFn = options.fetch || globalThis.fetch;
+  const timeoutSignal = AbortSignal.timeout(options.timeoutMs || REQUEST_TIMEOUT_MS);
 
-  const requestBody = {
-    contents: [
-      {
-        parts: [{ text: prompt }]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.3, // Low temperature for deterministic adherence to schema
-      topP: 0.8,
-      maxOutputTokens: 600
-    }
-  };
+  const isGroq = activeKey.startsWith('gsk_') || Boolean(process.env.GROQ_API_KEY);
 
   try {
-    const fetchFn = options.fetch || globalThis.fetch;
-    const response = await fetchFn(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(options.timeoutMs || REQUEST_TIMEOUT_MS)
-    });
+    let candidateText = '';
+    let providerName = 'Gemini GenAI';
 
-    if (!response.ok) {
-      return {
-        ...plan,
-        aiEnriched: false,
-        aiNotice: `AI service unavailable (status ${response.status}). Displaying deterministic rule engine plan.`
+    if (isGroq) {
+      providerName = 'Groq GenAI';
+      const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+      const groqEndpoint = 'https://api.groq.com/openai/v1/chat/completions';
+
+      const response = await fetchFn(groqEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeKey}`
+        },
+        body: JSON.stringify({
+          model: groqModel,
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+          max_tokens: 1500
+        }),
+        signal: timeoutSignal
+      });
+
+      if (!response.ok) {
+        return {
+          ...plan,
+          aiEnriched: false,
+          aiNotice: `AI service unavailable (status ${response.status}). Displaying deterministic rule engine plan.`
+        };
+      }
+
+      const data = await response.json();
+      candidateText = data?.choices?.[0]?.message?.content;
+    } else {
+      // Gemini Provider
+      const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+      const endpoint = `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(activeKey)}`;
+
+      const requestBody = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          topP: 0.8,
+          maxOutputTokens: 600
+        }
       };
-    }
 
-    const data = await response.json();
-    const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const response = await fetchFn(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+        signal: timeoutSignal
+      });
+
+      if (!response.ok) {
+        return {
+          ...plan,
+          aiEnriched: false,
+          aiNotice: `AI service unavailable (status ${response.status}). Displaying deterministic rule engine plan.`
+        };
+      }
+
+      const data = await response.json();
+      candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    }
 
     if (!candidateText) {
       return {
@@ -192,10 +230,9 @@ export async function enrichPlanWithAi(plan, apiKey = process.env.GEMINI_API_KEY
       summary,
       personalizedIdeas: mergedIdeas,
       aiEnriched: true,
-      aiNotice: 'Successfully enriched with Gemini GenAI.'
+      aiNotice: `Successfully enriched with ${providerName}.`
     };
   } catch (err) {
-    // Never crash on network, timeout, or parsing failure
     const errorMsg = err?.name === 'TimeoutError'
       ? 'AI request timed out after 8s.'
       : 'AI enrichment network error.';
@@ -207,3 +244,4 @@ export async function enrichPlanWithAi(plan, apiKey = process.env.GEMINI_API_KEY
     };
   }
 }
+
